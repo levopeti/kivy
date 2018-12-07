@@ -1,13 +1,58 @@
 #:kivy 1.10.1
 
 <MainWidget>:
+    #:set rect_height 260
 
-    canvas:
+    canvas.before:
         Color:
             rgba: 1, 1, 1, 1
         Line:
             width: 1.
-            rectangle: (125, 25, self.width - 155, self.height - 55)
+            rectangle: (125, 330, self.width - 155, self.height - 360)
+
+
+
+        Line:
+            width: 1.
+            rectangle: (0 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_0 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 1 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_1 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 2 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_2 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 3 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_3 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 4 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_4 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 5 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_5 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 6 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_6 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 7 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_7 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 8 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_8 / root.max_prob)
+
+        Line:
+            width: 1.
+            rectangle: ((root.width / 12) * 9 + (150 - (root.width / 24)), 40, (root.width / 12) - 5, rect_height * root.prob_9 / root.max_prob)
+
+
 
     Label:
         font_size: 100
@@ -20,3 +65,127 @@
         center_x: root.width / 2 + 70
         top: 100
         text: root.path
+
+
+
+    Label:
+        font_size: 20
+        center_x: 150
+        top: 70
+        text: str(0)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) + 150
+        top: 70
+        text: str(1)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 2 + 150
+        top: 70
+        text: str(2)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 3 + 150
+        top: 70
+        text: str(3)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 4 + 150
+        top: 70
+        text: str(4)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 5 + 150
+        top: 70
+        text: str(5)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 6 + 150
+        top: 70
+        text: str(6)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 7 + 150
+        top: 70
+        text: str(7)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 8 + 150
+        top: 70
+        text: str(8)
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 9 + 150
+        top: 70
+        text: str(9)
+
+
+
+    Label:
+        font_size: 20
+        center_x: 150
+        top: rect_height * root.prob_0 / root.max_prob + 100
+        text: str(root.prob_0) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) + 150
+        top: rect_height * root.prob_1 / root.max_prob  + 100
+        text: str(root.prob_1) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 2 + 150
+        top: rect_height * root.prob_2 / root.max_prob  + 100
+        text: str(root.prob_2) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 3 + 150
+        top: rect_height * root.prob_3 / root.max_prob  + 100
+        text: str(root.prob_3) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 4 + 150
+        top: rect_height * root.prob_4 / root.max_prob  + 100
+        text: str(root.prob_4) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 5 + 150
+        top: rect_height * root.prob_5 / root.max_prob  + 100
+        text: str(root.prob_5) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 6 + 150
+        top: rect_height * root.prob_6 / root.max_prob  + 100
+        text: str(root.prob_6) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 7 + 150
+        top: rect_height * root.prob_7 / root.max_prob  + 100
+        text: str(root.prob_7) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 8 + 150
+        top: rect_height * root.prob_8 / root.max_prob  + 100
+        text: str(root.prob_8) + '%'
+
+    Label:
+        font_size: 20
+        center_x: (root.width / 12) * 9 + 150
+        top: rect_height * root.prob_9 / root.max_prob + 100
+        text: str(root.prob_9) + '%'

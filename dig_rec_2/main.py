@@ -7,7 +7,6 @@ from kivy.graphics import Color, Ellipse, Line
 from kivy.core.window import Window
 from kivy.properties import NumericProperty, ReferenceListProperty, ObjectProperty, Property
 from kivy.uix.label import Label
-# import matplotlib.pyplot as plt
 
 from kivy.graphics.texture import Texture
 from kivy.graphics import Rectangle
@@ -36,12 +35,22 @@ class DigitPaint(Widget):
         self.line = touch.ud['line']
 
 
-class Predict(Widget):
-    current = NumericProperty(0)
-
-
 class MainWidget(Widget):
     current = NumericProperty(0)
+
+    prob_0 = NumericProperty(0)
+    prob_1 = NumericProperty(0)
+    prob_2 = NumericProperty(0)
+    prob_3 = NumericProperty(0)
+    prob_4 = NumericProperty(0)
+    prob_5 = NumericProperty(0)
+    prob_6 = NumericProperty(0)
+    prob_7 = NumericProperty(0)
+    prob_8 = NumericProperty(0)
+    prob_9 = NumericProperty(0)
+
+    max_prob = NumericProperty(1)
+
     path = Property("")
 
     def set_pred(self, pred):
@@ -50,15 +59,25 @@ class MainWidget(Widget):
     def set_path(self, path):
         self.path = str(path)
 
-    def display_img(self, arr):
-        self.add_widget(arr)
+    def draw_prob_rect(self, pred_arr):
+        self.prob_0 = pred_arr[0]
+        self.prob_1 = pred_arr[1]
+        self.prob_2 = pred_arr[2]
+        self.prob_3 = pred_arr[3]
+        self.prob_4 = pred_arr[4]
+        self.prob_5 = pred_arr[5]
+        self.prob_6 = pred_arr[6]
+        self.prob_7 = pred_arr[7]
+        self.prob_8 = pred_arr[8]
+        self.prob_9 = pred_arr[9]
+
+        self.max_prob = max(pred_arr)
 
 
 class RecogApp(App):
     def build(self):
         self.parent = MainWidget()
         self.painter = DigitPaint()
-        self.predictor = Predict()
 
         clearbtn = Button(text='Clear', pos=(0, 110))
         clearbtn.bind(on_release=self.clear_canvas)
@@ -99,8 +118,15 @@ class RecogApp(App):
         prediction = predict(img_2)
         # print('pred: ', time.time() - start)
 
-        self.parent.set_path(prediction)
+        prediction = prediction[0][0]
+
         self.parent.set_pred(np.argmax(prediction))
+
+        int_pred = []
+        for i, num in enumerate(prediction):
+            int_pred.append(int(num * 100))
+
+        self.parent.draw_prob_rect(int_pred)
 
     def exit_btn(self, *kwargs):
         self.stop()
@@ -108,6 +134,12 @@ class RecogApp(App):
 
 def draw_from_line(w, h):
     global digit_line
+
+    cut_h_down = 330
+    cut_h_up = 30
+
+    cut_w_left = 125
+    cut_w_right = 30
 
     # image = PIL.Image.new(mode='1', size=(w, h))
     # draw = PIL.ImageDraw.Draw(image)
@@ -133,8 +165,8 @@ def draw_from_line(w, h):
                         if dist < 15:
                             image[y_it, x_it] = 1
 
+    image = image[cut_h_down:(h - cut_h_up), cut_w_left:(w - cut_w_right)]
     image = image[::-1]
-    image = image[25:(h - 30), 125:(w - 30)]
     image = PIL.Image.fromarray(image)
     image = image.resize((28, 28), PIL.Image.ANTIALIAS)
     image = np.asarray(image)
@@ -144,6 +176,7 @@ def draw_from_line(w, h):
 
 def draw_from_line_2(w, h):
     global digit_line
+    # print(w, h)
 
     valid_line = []
 
@@ -151,20 +184,26 @@ def draw_from_line_2(w, h):
     dec_fact = 4
     line_width = 30
 
+    cut_h_down = 330
+    cut_h_up = 30
+
+    cut_w_left = 125
+    cut_w_right = 30
+
     # crop line on image
     for point in digit_line:
         x = point[0]
         y = point[1]
 
-        if w - 30 > x > 125:
-            if h - 30 > y > 25:
-                n_x = x - 125
-                n_y = y - 25
+        if w - cut_w_right > x > cut_w_left:
+            if h - cut_h_up > y > cut_h_down:
+                n_x = x - cut_w_left
+                n_y = y - cut_h_down
 
                 valid_line.append([n_x, n_y])
 
-    h = h - 55
-    w = w - 155
+    h = h - (cut_h_up + cut_h_down)
+    w = w - (cut_w_left + cut_w_right)
 
     if h % 2 != 0:
         h += 1
@@ -199,6 +238,27 @@ def draw_from_line_2(w, h):
     return image
 
 
+def predict(im):
+    global nn
+
+    # import matplotlib.pyplot as plt
+    # plt.subplot(2, 1, 1)
+    # plt.imshow(im)
+    # plt.subplot(2, 1, 2)
+    # plt.imshow(im_2)
+    # plt.show()
+
+    gray_image = im.reshape(1, 1, -1)
+
+    if nn:
+        prediction = nn.predict(gray_image)
+    else:
+        build_nn()
+        prediction = nn.predict(gray_image)
+
+    return prediction
+
+
 def build_nn():
     global nn
 
@@ -229,25 +289,6 @@ def build_nn():
     nn = NeuralNet(ip, op)
     nn.build_model(loss="XE", learning_rate=0.1, batch_size=1)
     nn.load_weights(filepath='weights.txt')
-
-
-def predict(im):
-    global nn
-    # plt.subplot(2, 1, 1)
-    # plt.imshow(im)
-    # plt.subplot(2, 1, 2)
-    # plt.imshow(im_2)
-    # plt.show()
-
-    gray_image = im.reshape(1, 1, -1)
-
-    if nn:
-        prediction = nn.predict(gray_image)
-    else:
-        build_nn()
-        prediction = nn.predict(gray_image)
-
-    return prediction
 
 
 class Input(object):
