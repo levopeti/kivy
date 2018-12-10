@@ -13,6 +13,7 @@ from kivy.graphics import Rectangle
 
 from abc import ABC, abstractmethod
 import numpy as np
+from urllib.request import urlopen
 
 import pickle
 import os
@@ -105,6 +106,9 @@ class RecogApp(App):
 
         w = self.parent.width
         h = self.parent.height
+
+        if not nn:
+            build_nn(self.user_data_dir)
 
         # start = time.time()
         # img = draw_from_line(w, h)
@@ -250,16 +254,39 @@ def predict(im):
 
     gray_image = im.reshape(1, 1, -1)
 
-    if nn:
-        prediction = nn.predict(gray_image)
-    else:
-        build_nn()
-        prediction = nn.predict(gray_image)
+    prediction = nn.predict(gray_image)
 
     return prediction
 
 
-def build_nn():
+def download_file(save_dir, url):
+    local_filename = url.split('/')[-1]
+    local_file = os.path.join(save_dir, local_filename)
+
+    response = urlopen(url + "?raw=true")
+    CHUNK = 16 * 1024
+    with open(local_file, 'wb') as f:
+        while True:
+            chunk = response.read(CHUNK)
+            if not chunk:
+                break
+            f.write(chunk)
+
+    # save_dir = self.user_data_dir
+    # save_dir = "/home/biot"
+    # local_filename = url.split('/')[-1]
+    # local_file = os.path.join(save_dir, local_filename)
+    # response = requests.get(url, stream=True)
+    # with open(local_file, 'wb') as f:
+    #     for chunk in response.iter_content(chunk_size=1024):
+    #         if chunk:
+    #             f.write(chunk)
+    #             f.flush()
+
+    return local_file
+
+
+def build_nn(save_dir):
     global nn
 
     num_class = 10
@@ -288,7 +315,17 @@ def build_nn():
 
     nn = NeuralNet(ip, op)
     nn.build_model(loss="XE", learning_rate=0.1, batch_size=1)
-    nn.load_weights(filepath='weights.txt')
+
+    weihts_file = os.path.join(save_dir, 'weights.txt')
+
+    if os.path.exists(weihts_file):
+        print('Load from ', weihts_file)
+        nn.load_weights(filepath=weihts_file)
+    else:
+        print('download file')
+        url = "https://github.com/levopeti/research/blob/neural_network/weights/weights.txt"
+        path = download_file(save_dir, url)
+        nn.load_weights(filepath=path)
 
 
 class Input(object):
