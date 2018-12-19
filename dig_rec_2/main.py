@@ -13,15 +13,19 @@ from kivy.graphics import Rectangle
 
 from abc import ABC, abstractmethod
 import numpy as np
-from urllib.request import urlopen
+from urllib.request import urlopen, URLError, Request
+from kivy.network.urlrequest import UrlRequest
 
 import pickle
 import os
 import PIL
 import time
+import threading
+# import requests
 
 nn = None
 digit_line = []
+log = 0
 
 
 class DigitPaint(Widget):
@@ -104,11 +108,19 @@ class RecogApp(App):
     def digit_rec(self, obj):
         global digit_line
 
+        # home_dir = os.path.expanduser("~")
+        self.parent.set_path(log)
+
         w = self.parent.width
         h = self.parent.height
 
         if not nn:
-            build_nn(self.user_data_dir)
+            succes = build_nn('./')
+            # self.parent.set_path(log)
+
+            # if succes:
+            #     # pass
+            #     self.parent.set_path('Weights are loaded!')
 
         # start = time.time()
         # img = draw_from_line(w, h)
@@ -132,8 +144,9 @@ class RecogApp(App):
 
         self.parent.draw_prob_rect(int_pred)
 
-    def exit_btn(self, *kwargs):
-        self.stop()
+    @abstractmethod
+    def exit_btn(*kwargs):
+        exit()
 
 
 def draw_from_line(w, h):
@@ -259,36 +272,45 @@ def predict(im):
     return prediction
 
 
-def download_file(save_dir, url):
-    local_filename = url.split('/')[-1]
-    local_file = os.path.join(save_dir, local_filename)
+def download_file(local_file, url):
+    global log
+    log = 999
 
-    response = urlopen(url + "?raw=true")
-    CHUNK = 16 * 1024
-    with open(local_file, 'wb') as f:
-        while True:
-            chunk = response.read(CHUNK)
-            if not chunk:
-                break
-            f.write(chunk)
+    try:
+        req = Request("https://google.com/")
+    except URLError as err:
+        log = err
 
-    # save_dir = self.user_data_dir
-    # save_dir = "/home/biot"
-    # local_filename = url.split('/')[-1]
-    # local_file = os.path.join(save_dir, local_filename)
-    # response = requests.get(url, stream=True)
+    try:
+        response = urlopen(req)
+    except URLError as err:
+        log = err
+
+    # # response = urlopen(url + "?raw=true")
+    # CHUNK = 64 * 1024
+    # log = 1
+    #
     # with open(local_file, 'wb') as f:
-    #     for chunk in response.iter_content(chunk_size=1024):
-    #         if chunk:
-    #             f.write(chunk)
-    #             f.flush()
+    #     while True:
+    #         log = 2
+    #         chunk = response.read(CHUNK)
+    #         if not chunk:
+    #             log = 3
+    #             break
+    #         log = 4
+    #         f.write(chunk)
+    #     log = 5
 
-    return local_file
+    # def succ(req, result):
+    #     log = 111
+    #
+    # req = UrlRequest(url=url + "?raw=true", file_path=local_file, on_success=succ)
 
 
 def build_nn(save_dir):
-    global nn
+    global nn, log
 
+    succes = False
     num_class = 10
 
     ip = Input(input_size=(1, 784))
@@ -316,16 +338,37 @@ def build_nn(save_dir):
     nn = NeuralNet(ip, op)
     nn.build_model(loss="XE", learning_rate=0.1, batch_size=1)
 
-    weihts_file = os.path.join(save_dir, 'weights.txt')
+    weights_file = os.path.join(save_dir, 'weights.txt')
 
-    if os.path.exists(weihts_file):
-        print('Load from ', weihts_file)
-        nn.load_weights(filepath=weihts_file)
+    if os.path.exists(weights_file):
+        log = 'Load from ' + weights_file
+        print('Load from ', weights_file)
+        nn.load_weights(filepath=weights_file)
+        succes = True
     else:
         print('download file')
         url = "https://github.com/levopeti/research/blob/neural_network/weights/weights.txt"
-        path = download_file(save_dir, url)
-        nn.load_weights(filepath=path)
+
+        local_filename = url.split('/')[-1]
+        local_file = os.path.join(save_dir, local_filename)
+
+        # download_file(local_file, url)
+
+        t = threading.Thread(target=download_file, args=(local_file, url))
+        t.deamon = True
+        t.start()
+
+        # while True:
+        #     if os.path.exists(local_file):
+        #         print('build')
+        #         nn.load_weights(filepath=local_file)
+        #         succes = True
+        #         break
+        #     else:
+        #         time.sleep(2)
+        #         print('sleep')
+
+    return succes
 
 
 class Input(object):
