@@ -132,7 +132,7 @@ class RecogApp(App):
 
         int_pred = []
         for i, num in enumerate(prediction):
-            int_pred.append(int(num * 100))
+            int_pred.append(int(num * 1000))
 
         self.parent.draw_prob_rect(int_pred)
 
