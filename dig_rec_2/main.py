@@ -4,28 +4,24 @@ from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button
 from kivy.graphics import Color, Ellipse, Line
-from kivy.core.window import Window
+# from kivy.core.window import Window
 from kivy.properties import NumericProperty, ReferenceListProperty, ObjectProperty, Property
-from kivy.uix.label import Label
-
-from kivy.graphics.texture import Texture
-from kivy.graphics import Rectangle
+# from kivy.uix.label import Label
+#
+# from kivy.graphics.texture import Texture
+# from kivy.graphics import Rectangle
 
 from abc import ABC, abstractmethod
 import numpy as np
-from urllib.request import urlopen, URLError, Request
-from kivy.network.urlrequest import UrlRequest
 
 import pickle
 import os
 import PIL
-import time
-import threading
-# import requests
+# import time
 
 nn = None
 digit_line = []
-log = 0
+log = ""
 
 
 class DigitPaint(Widget):
@@ -56,13 +52,13 @@ class MainWidget(Widget):
 
     max_prob = NumericProperty(1)
 
-    path = Property("")
+    log = Property("")
 
     def set_pred(self, pred):
         self.current = int(pred)
 
-    def set_path(self, path):
-        self.path = str(path)
+    def write_log(self, path):
+        self.log = str(path)
 
     def draw_prob_rect(self, pred_arr):
         self.prob_0 = pred_arr[0]
@@ -106,21 +102,17 @@ class RecogApp(App):
         digit_line = []
 
     def digit_rec(self, obj):
-        global digit_line
-
-        # home_dir = os.path.expanduser("~")
-        self.parent.set_path(log)
+        global digit_line, log
 
         w = self.parent.width
         h = self.parent.height
 
-        if not nn:
-            succes = build_nn('./')
-            # self.parent.set_path(log)
+        log = ""
 
-            # if succes:
-            #     # pass
-            #     self.parent.set_path('Weights are loaded!')
+        if not nn:
+            build_nn('./')
+
+        self.parent.write_log(log)
 
         # start = time.time()
         # img = draw_from_line(w, h)
@@ -272,45 +264,9 @@ def predict(im):
     return prediction
 
 
-def download_file(local_file, url):
-    global log
-    log = 999
-
-    try:
-        req = Request("https://google.com/")
-    except URLError as err:
-        log = err
-
-    try:
-        response = urlopen(req)
-    except URLError as err:
-        log = err
-
-    # # response = urlopen(url + "?raw=true")
-    # CHUNK = 64 * 1024
-    # log = 1
-    #
-    # with open(local_file, 'wb') as f:
-    #     while True:
-    #         log = 2
-    #         chunk = response.read(CHUNK)
-    #         if not chunk:
-    #             log = 3
-    #             break
-    #         log = 4
-    #         f.write(chunk)
-    #     log = 5
-
-    # def succ(req, result):
-    #     log = 111
-    #
-    # req = UrlRequest(url=url + "?raw=true", file_path=local_file, on_success=succ)
-
-
 def build_nn(save_dir):
     global nn, log
 
-    succes = False
     num_class = 10
 
     ip = Input(input_size=(1, 784))
@@ -321,7 +277,7 @@ def build_nn(save_dir):
     # a = Add(weights_of_layers=[1, 3])([x, y])
     # c = Concat(axis=1)([x, y])
     # f = Flatten()(a)
-    x1 = Dense(units=256, activation="sigmoid")(ip)
+    x1 = Dense(units=512, activation="sigmoid")(ip)
 
     # y1 = Dense(units=20, activation="sigmoid")(x1)
     # y2 = Dense(units=20, activation="sigmoid", learning_rate=1)(x1)
@@ -336,39 +292,17 @@ def build_nn(save_dir):
     op = Dense(units=num_class, activation="sigmoid")(x1)
 
     nn = NeuralNet(ip, op)
-    nn.build_model(loss="XE", learning_rate=0.1, batch_size=1)
+    nn.build_model(loss="XE", optimizer=None, learning_rate=None, batch_size=1)
 
-    weights_file = os.path.join(save_dir, 'weights.txt')
+    weights_file = os.path.join(save_dir, '784_512_10_weights.txt')
 
     if os.path.exists(weights_file):
-        log = 'Load from ' + weights_file
+        log = 'Load weights from ' + weights_file
         print('Load from ', weights_file)
         nn.load_weights(filepath=weights_file)
-        succes = True
     else:
-        print('download file')
-        url = "https://github.com/levopeti/research/blob/neural_network/weights/weights.txt"
-
-        local_filename = url.split('/')[-1]
-        local_file = os.path.join(save_dir, local_filename)
-
-        # download_file(local_file, url)
-
-        t = threading.Thread(target=download_file, args=(local_file, url))
-        t.deamon = True
-        t.start()
-
-        # while True:
-        #     if os.path.exists(local_file):
-        #         print('build')
-        #         nn.load_weights(filepath=local_file)
-        #         succes = True
-        #         break
-        #     else:
-        #         time.sleep(2)
-        #         print('sleep')
-
-    return succes
+        log = 'No weights found!'
+        print('No weights found!')
 
 
 class Input(object):
@@ -380,7 +314,7 @@ class Input(object):
         self.output = None
         self.next_layer = []
 
-    def set_size_forward(self, batch_size, learning_rate):
+    def set_size_forward(self, batch_size, learning_rate, optimizer):
         self.batch_size = batch_size
         output_size = [batch_size]
 
@@ -390,7 +324,7 @@ class Input(object):
         self.output_size = tuple(output_size)
 
         for layer in self.next_layer:
-            layer.set_size_forward(batch_size, learning_rate)
+            layer.set_size_forward(batch_size, learning_rate, optimizer)
 
     def set_next_layer(self, layer):
         self.next_layer.append(layer)
@@ -430,16 +364,21 @@ class Layer(ABC):
         self.W = None
         self.b = None
         self.z = None
+        self.z_nesterov = None
+
+        # cache for optimizer
+        self.cache_W = None
+        self.cache_b = None
 
         self.prev_layer = prev_layer
         self.next_layer = []
 
         self.prev_layer_set_next_layer()
 
-        # convention of input shape
+        self.optimizer = None
 
     @abstractmethod
-    def set_size_forward(self, batch_size, learning_rate):
+    def set_size_forward(self, batch_size, learning_rate, optimizer):
         pass
 
     @abstractmethod
@@ -494,7 +433,10 @@ class Layer(ABC):
 
     @staticmethod
     def log(x):
-        return 1 / (1 + np.exp(-1 * x))
+        """
+        Numerically stable sigmoid function.
+        """
+        return np.where(x > -1e2, 1 / (1 + np.exp(-x)), 1 / (1 + np.exp(1e2)))
 
     def d_log(self, x):
         return self.log(x) * (1 - self.log(x))
@@ -506,6 +448,10 @@ class Layer(ABC):
     @staticmethod
     def d_relu(x):
         return np.where(x > 0, 1, 0)
+
+    def update_weights(self, delta_W, delta_b):
+        """Update weights and velocity of the weights."""
+        self.W, self.b, self.cache_W, self.cache_b = self.optimizer.run(self.W, self.cache_W, delta_W, self.b, self.cache_b, delta_b, self.learning_rate)
 
 
 class Dense(Layer):
@@ -520,8 +466,9 @@ class Dense(Layer):
         super().__init__(activation=activation, learning_rate=learning_rate, prev_layer=prev_layer)
         self.units = units
 
-    def set_size_forward(self, batch_size, learning_rate):
+    def set_size_forward(self, batch_size, learning_rate, optimizer):
         self.batch_size = batch_size
+        self.optimizer = optimizer
         self.input_size = self.prev_layer.output_size
         self.output_size = (self.batch_size, 1, self.units)
 
@@ -530,13 +477,17 @@ class Dense(Layer):
 
         self.W = (np.random.rand(self.input_size[2], self.output_size[2]) * 1) - 0.5
         self.b = (np.random.rand(self.output_size[2]) * 1) - 0.5
+
         # self.b = np.zeros(self.output_size)
+
+        # init cache in case nasterov
+        # self.cache_W, self.cache_b = self.optimizer.init(self.W.shape, self.b.shape)
 
         log = "Dense layer with {} parameters.\nInput size: {}\nOutput size: {}\n".format(self.W.size + self.b.size, self.input_size, self.output_size)
         print(log)
 
         for layer in self.next_layer:
-            layer.set_size_forward(batch_size, learning_rate)
+            layer.set_size_forward(batch_size, learning_rate, optimizer)
 
     def save_weights(self, w_array):
         w_array.append(self.W)
@@ -560,6 +511,13 @@ class Dense(Layer):
         """Fully connected layer forward process."""
         x = self.prev_layer.output
         self.z = np.add(np.dot(x, self.W), self.b)
+
+        # if self.optimizer.name == "SGD":
+        #     if self.optimizer.nesterov:
+        #         nesterov_W = np.subtract(self.W, self.optimizer.gamma * self.cache_W)
+        #         nesterov_b = np.subtract(self.b, self.optimizer.gamma * self.cache_b)
+        #         self.z_nesterov = np.add(np.dot(x, nesterov_W), nesterov_b)
+
         self.output = self.act(self.z)
 
         assert self.output.shape == self.output_size
@@ -570,20 +528,28 @@ class Dense(Layer):
     def backward_process(self, input_error):
         """Fully connected layer backward process"""
         # print("dense backward")
-        # TODO: More next layer
-        d_act_z = self.d_act(self.z)
+
+        if self.z_nesterov is not None:
+            d_act_z = self.d_act(self.z_nesterov)
+        else:
+            d_act_z = self.d_act(self.z)
 
         delta_b = np.multiply(input_error, d_act_z)
         x = self.prev_layer.output
-        x = np.transpose(x, axes=(0, 2, 1))  # transpose the last two axis
+
+        # transpose the last two axis
+        x = np.transpose(x, axes=(0, 2, 1))
 
         self.output_bp = np.dot(delta_b, np.transpose(self.W))
 
         delta_W = np.tensordot(x, delta_b, axes=([0, 2], [0, 1]))
         delta_b = np.sum(delta_b, axis=0).reshape(-1)
 
-        self.W = np.subtract(self.W, delta_W * (self.learning_rate / self.batch_size))
-        self.b = np.subtract(self.b, delta_b * (self.learning_rate / self.batch_size))
+        # normalization
+        delta_W = delta_W / self.batch_size
+        delta_b = delta_b / self.batch_size
+
+        self.update_weights(delta_W, delta_b)
 
         assert self.output_bp.shape == self.input_size
 
@@ -595,13 +561,19 @@ class NeuralNet(object):
         self.learning_rate = 0.1
         self.loss = None
         self.error = None
+        self.optimizer = None
 
         self.X = None
         self.Y = None
         self.Y_am = None        # Y argmax
 
+        self.test_x = None
+        self.test_y = None
+        self.test_y_am = None   # test_y atgmax
+
         self.batch_size = None
         self.num_batches = None
+        self.test_num_batches = None
         self.epochs = None
 
         self.input = input
@@ -609,18 +581,21 @@ class NeuralNet(object):
 
         self.model = None
 
+        self.POOL = True
+
     def __del__(self):
         pass
 
-    def build_model(self, loss="MSE", learning_rate=0.1, batch_size=100):
+    def build_model(self, loss="MSE", optimizer=None, learning_rate=None, batch_size=100):
         print("Build the model...\n")
         self.batch_size = batch_size
         self.learning_rate = learning_rate
 
-        self.learning_rate = learning_rate
         self.loss = self.loss_func(loss)
         self.error = self.error_func(loss)
-        self.input.set_size_forward(self.batch_size, self.learning_rate)
+        self.optimizer = optimizer
+
+        self.input.set_size_forward(self.batch_size, self.learning_rate, self.optimizer)
 
     def set_weights(self, individual):
         self.W = np.reshape(np.array(individual[:7840]), (784, 10))  # shape (784, 10)
@@ -653,30 +628,9 @@ class NeuralNet(object):
 
         return prediction
 
-    def evaluate(self):
+    def evaluate(self, test=False):
         """Evaluate the model."""
-        global_loss = 0
-        predicted_values = []
-
-        for b in range(self.num_batches):
-            # print(b)
-
-            # forward process
-            start, end = b * self.batch_size, (b + 1) * self.batch_size
-            self.forward(start, end)
-            o = self.output.output
-
-            loss, predicted_value = self.loss(o, self.Y[start:end])
-            # print(loss)
-            # print(predicted_value.shape)
-            # exit()
-            predicted_values.append(predicted_value)
-
-            global_loss += loss
-
-        predicted_values = np.array(predicted_values).reshape(-1,)
-
-        return global_loss, self.accurate_func(np.array(predicted_values))
+        pass
 
     def train_step(self):
         """Train one epoch on the network with backpropagation."""
@@ -685,52 +639,63 @@ class NeuralNet(object):
             # print(b)
 
             # forward
-            #start_time = time.time()
+            # start_time = time.time()
             start, end = b * self.batch_size, (b + 1) * self.batch_size
             self.forward(start, end)
-            o = self.output.output
+
+            if self.output.z_nesterov is not None:
+                o = self.output.act(self.output.z_nesterov)
+            else:
+                o = self.output.output
 
             # print("Time of forward: {}s".format(time.time() - start_time))
             error = self.error(o, self.Y[start:end])
 
             # backward
-            #start_time = time.time()
+            # start_time = time.time()
             self.backward(error)
             # print("Time of backward: {}s".format(time.time() - start_time))
             # input()
 
-    def forward(self, start, end):
-        self.input.forward_process(self.X[start: end])
+    def forward(self, start, end, test=False):
+        if not test:
+            if end > self.X.shape[0]:
+                end = self.X.shape[0]
+
+            self.input.forward_process(self.X[start: end])
+        else:
+            if end > self.test_x.shape[0]:
+                end = self.test_x.shape[0]
+
+            self.input.forward_process(self.test_x[start: end])
 
     def backward(self, error):
         # for the first layer the output_bp = error
         self.output.backward_process(error)
 
-    def train(self, X, Y, epochs):
-        self.X = X
-        self.Y = Y
-        self.Y_am = np.argmax(Y.reshape(-1, 10), axis=1)
+    def train(self, train_x, train_y, test_x=None, test_y=None, epochs=100):
+        pass
 
-        self.epochs = epochs
-        self.num_batches = self.X.shape[0] // self.batch_size
+    @staticmethod
+    def print_stat(i, loss_value, accurate, test_loss_value, test_accurate, train_time, eval_time):
+        if test_loss_value:
+            # print("EPOCH", i + 1, " Train acc.: {0:.2f}% ".format(accurate * 100), "Train loss: {0:.4f}  ".format(loss_value), "Test acc.: {0:.2f}% ".format(test_accurate * 100), "Test loss: {0:.4f}  ".format(test_loss_value), "Train/eval time: {0:.2f}s/{1:.2f}s\n".format(train_time, eval_time))
+            print("EPOCH", i + 1, " Train/eval acc.: {0:.2f}/{1:.2f}% ".format(accurate * 100, test_accurate * 100), "Train/eval loss: {0:.4f}/{1:.4f}  ".format(loss_value, test_loss_value), "Train/eval time: {0:.2f}s/{1:.2f}s\n".format(train_time, eval_time))
 
-        #print("Start training the model...\n")
+        else:
+            print("EPOCH", i + 1, "\tTrain accurate: {0:.2f}%\t".format(accurate * 100), "Train loss: {0:.4f}\t".format(loss_value), "Train/eval time: {0:.2f}s/{1:.2f}s\n".format(train_time, eval_time))
 
-        for i in range(self.epochs):
-            #start = time.time()
-            self.train_step()
-            loss_value, accurate = self.evaluate()
-
-            #print("EPOCH", i + 1, "\tAccurate: {0:.2f}%\t".format(accurate * 100), "Loss: {0:.4f}\t".format(loss_value), "Time: {0:.2f}s\n".format(time.time() - start))
-            if i == 30:
-                self.learning_rate *= 0.5
-
-    def accurate_func(self, pred):
+    def accurate_func(self, pred, test=False):
         goal = 0
 
-        for i in range(pred.shape[0]):
-            if pred[i] == self.Y_am[i]:         # shape: (70000, 1, 10) --> shape: (70000, 10)
-                goal += 1
+        if not test:
+            for i in range(pred.shape[0]):
+                if pred[i] == self.Y_am[i]:             # shape: (-1, 1, num_class) --> shape: (-1, num_class)
+                    goal += 1
+        else:
+            for i in range(pred.shape[0]):
+                if pred[i] == self.test_y_am[i]:
+                    goal += 1
 
         return goal / pred.shape[0]
 
@@ -788,8 +753,10 @@ class NeuralNet(object):
         cost = -(1.0/m) * np.sum(np.dot(np.log(A), Y.T) + np.dot(np.log(1-A), (1-Y).T))
         """
         # y = y.argmax(axis=1)
+
+        # batch_size
         m = y.shape[0]
-        #
+
         # log_likelihood = -np.log(p[range(m), y])
         # loss = np.sum(log_likelihood) / m
 

@@ -17,7 +17,7 @@ print('packages are', packages)
 
 setup(
     name='D_S_8',
-    version='2.8',
+    version='2.9',
     description='prupack',
     author='LevoPeti',
     author_email='beracom@freemail.hu',
