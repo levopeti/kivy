@@ -2,6 +2,8 @@
 # sudo docker run -it --rm kivy_test
 
 FROM ubuntu:18.04
+ENV PYTHONIOENCODING="utf8"
+
 RUN dpkg --add-architecture i386
 RUN apt-get update
 RUN apt-get upgrade
@@ -64,4 +66,7 @@ WORKDIR ~/buildozer-repo
 RUN git clone https://github.com/kivy/buildozer.git
 WORKDIR buildozer
 RUN python3 setup.py install
-WORKDIR ~/
+WORKDIR /
+
+# git clone https://github.com/levopeti/kivy.git
+# sudo docker cp <containerId>:/file/path/within/container /host/path/target
