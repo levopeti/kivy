@@ -106,7 +106,6 @@ class MainGrid(BoxLayout):
             self.plot_y.points = []
             self.plot_z.points = []
 
-
     def update_plot(self):
         while self.run_plot:
             x = state.x[-self.max_samples:]
