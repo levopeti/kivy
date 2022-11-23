@@ -69,4 +69,7 @@ RUN python3 setup.py install
 WORKDIR /
 
 # git clone https://github.com/levopeti/kivy.git
+# git clone https://github.com/levopeti/stroke_prediction.git
 # sudo docker cp <containerId>:/file/path/within/container /host/path/target
+# android.permissions = BLUETOOTH_ADMIN,BLUETOOTH
+# buildozer -v android debug
